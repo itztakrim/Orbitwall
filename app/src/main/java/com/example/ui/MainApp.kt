@@ -1,53 +1,89 @@
 package com.example.ui
 
-import androidx.compose.animation.Crossfade
+import android.content.Intent
+import android.net.Uri
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.example.ui.theme.DotMatrixFont
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.ui.screens.AdminUploadScreen
+import com.example.ui.screens.AdminConsoleScreen
 import com.example.ui.screens.FavoritesScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.OnboardingScreen
+import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.WallpaperDetailScreen
+import com.example.ui.theme.AppThemeMode
+import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.NothingBlue
+import com.example.ui.theme.NothingDarkDock
+import com.example.ui.theme.NothingLightDock
+import com.example.ui.theme.NothingRed
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainApp(
     viewModel: WallpaperViewModel = viewModel(),
@@ -55,8 +91,12 @@ fun MainApp(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uploadState by viewModel.uploadState.collectAsStateWithLifecycle()
+    val updateInfo by viewModel.updateInfo.collectAsStateWithLifecycle()
+    val isCheckingUpdates by viewModel.isCheckingUpdates.collectAsStateWithLifecycle()
     val favoriteWallpapers by viewModel.favoriteWallpapers.collectAsStateWithLifecycle()
     val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
+    val view = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -66,177 +106,550 @@ fun MainApp(
         }
     }
 
-    Box(modifier = modifier.fillMaxSize().background(Color(0xFFF7F8FC))) {
-        if (!uiState.isOnboardingCompleted) {
-            // Screen 1: Welcome / Onboarding Screen
-            OnboardingScreen(
-                wallpapers = uiState.wallpapers,
-                onStartExplore = { viewModel.completeOnboarding() }
-            )
-        } else {
-            // Main App Experience
-            Scaffold(
-                snackbarHost = {
-                    SnackbarHost(
-                        hostState = snackbarHostState,
-                        modifier = Modifier.padding(bottom = 85.dp)
-                    )
-                },
-                containerColor = Color(0xFFF7F8FC)
-            ) { paddingValues ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                ) {
-                    Crossfade(
-                        targetState = uiState.currentScreen,
-                        label = "main_screen_fade"
-                    ) { screen ->
-                        when (screen) {
-                            AppScreen.EXPLORE -> {
-                                HomeScreen(
-                                    wallpapers = uiState.wallpapers,
-                                    isLoading = uiState.isLoading,
-                                    categories = viewModel.categories,
-                                    selectedCategory = uiState.selectedCategory,
-                                    searchQuery = uiState.searchQuery,
-                                    favoriteIds = favoriteIds,
-                                    onSelectCategory = { viewModel.selectCategory(it) },
-                                    onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
-                                    onWallpaperClick = { viewModel.openWallpaperDetail(it) },
-                                    onFavoriteClick = { viewModel.toggleFavorite(it) },
-                                    onOpenAdminUpload = { viewModel.navigateToScreen(AppScreen.ADMIN_UPLOAD) }
-                                )
-                            }
-                            AppScreen.FAVORITES -> {
-                                FavoritesScreen(
-                                    favorites = favoriteWallpapers,
-                                    favoriteIds = favoriteIds,
-                                    onWallpaperClick = { viewModel.openWallpaperDetail(it) },
-                                    onFavoriteClick = { viewModel.toggleFavorite(it) },
-                                    onNavigateToExplore = { viewModel.navigateToScreen(AppScreen.EXPLORE) }
-                                )
-                            }
-                            AppScreen.ADMIN_UPLOAD -> {
-                                AdminUploadScreen(
-                                    uploadState = uploadState,
-                                    categories = viewModel.categories,
-                                    onImageSelected = { viewModel.onUploadImageSelected(it) },
-                                    onTitleChanged = { viewModel.onUploadTitleChanged(it) },
-                                    onCategoryChanged = { viewModel.onUploadCategoryChanged(it) },
-                                    onTagsChanged = { viewModel.onUploadTagsChanged(it) },
-                                    onSubmitUpload = { viewModel.submitUpload() },
-                                    onResetForm = { viewModel.resetUploadForm() },
-                                    onNavigateBack = { viewModel.navigateToScreen(AppScreen.EXPLORE) }
-                                )
+    fun triggerHaptic() {
+        if (uiState.hapticEnabled) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }
+    }
+
+    val pagerState = rememberPagerState(
+        initialPage = when (uiState.currentScreen) {
+            AppScreen.EXPLORE -> 0
+            AppScreen.FAVORITES -> 1
+            AppScreen.SETTINGS -> 2
+        },
+        pageCount = { 3 }
+    )
+
+    // Sync Pager state -> ViewModel navigation state with haptic feedback
+    LaunchedEffect(pagerState.currentPage) {
+        val targetScreen = when (pagerState.currentPage) {
+            0 -> AppScreen.EXPLORE
+            1 -> AppScreen.FAVORITES
+            else -> AppScreen.SETTINGS
+        }
+        if (uiState.currentScreen != targetScreen) {
+            triggerHaptic()
+            viewModel.navigateToScreen(targetScreen)
+        }
+    }
+
+    // Sync ViewModel navigation state -> Pager scroll
+    LaunchedEffect(uiState.currentScreen) {
+        val targetPage = when (uiState.currentScreen) {
+            AppScreen.EXPLORE -> 0
+            AppScreen.FAVORITES -> 1
+            AppScreen.SETTINGS -> 2
+        }
+        if (pagerState.currentPage != targetPage) {
+            pagerState.animateScrollToPage(targetPage)
+        }
+    }
+
+    MyApplicationTheme(darkTheme = uiState.themeMode == AppThemeMode.DARK) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            if (!uiState.isOnboardingCompleted || uiState.isPreviewingOnboarding) {
+                // Screen 1: Welcome / Onboarding Screen
+                OnboardingScreen(
+                    wallpapers = uiState.onboardingWallpapers,
+                    onStartExplore = {
+                        triggerHaptic()
+                        if (uiState.isPreviewingOnboarding) {
+                            viewModel.setPreviewingOnboarding(false)
+                        } else {
+                            viewModel.completeOnboarding()
+                        }
+                    },
+                    isPreview = uiState.isPreviewingOnboarding,
+                    onExitPreview = {
+                        triggerHaptic()
+                        viewModel.setPreviewingOnboarding(false)
+                    }
+                )
+            } else {
+                // Main App Experience with Full-Screen Swipeable HorizontalPager
+                Scaffold(
+                    snackbarHost = {
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.padding(bottom = 85.dp)
+                        )
+                    },
+                    containerColor = MaterialTheme.colorScheme.background
+                ) { paddingValues ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                    ) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            when (page) {
+                                0 -> {
+                                    HomeScreen(
+                                        wallpapers = uiState.wallpapers,
+                                        featuredWallpapers = uiState.featuredWallpapers,
+                                        isLoading = uiState.isLoading,
+                                        categories = viewModel.categories,
+                                        selectedCategory = uiState.selectedCategory,
+                                        searchQuery = uiState.searchQuery,
+                                        favoriteIds = favoriteIds,
+                                        visibleLimit = uiState.visibleLimit,
+                                        onSelectCategory = {
+                                            triggerHaptic()
+                                            viewModel.selectCategory(it)
+                                        },
+                                        onSearchQueryChanged = { viewModel.onSearchQueryChanged(it) },
+                                        onWallpaperClick = {
+                                            triggerHaptic()
+                                            viewModel.openWallpaperDetail(it)
+                                        },
+                                        onFavoriteClick = {
+                                            triggerHaptic()
+                                            viewModel.toggleFavorite(it)
+                                        },
+                                        onRefresh = {
+                                            triggerHaptic()
+                                            viewModel.refreshWallpapers()
+                                        },
+                                        onLoadMore = {
+                                            triggerHaptic()
+                                            viewModel.loadMoreWallpapers()
+                                        }
+                                    )
+                                }
+                                1 -> {
+                                    FavoritesScreen(
+                                        favorites = favoriteWallpapers,
+                                        favoriteIds = favoriteIds,
+                                        onWallpaperClick = {
+                                            triggerHaptic()
+                                            viewModel.openWallpaperDetail(it)
+                                        },
+                                        onFavoriteClick = {
+                                            triggerHaptic()
+                                            viewModel.toggleFavorite(it)
+                                        },
+                                        onNavigateToExplore = {
+                                            triggerHaptic()
+                                            coroutineScope.launch {
+                                                pagerState.animateScrollToPage(0)
+                                            }
+                                        }
+                                    )
+                                }
+                                2 -> {
+                                    SettingsScreen(
+                                        currentTheme = uiState.themeMode,
+                                        isHapticEnabled = uiState.hapticEnabled,
+                                        cacheSizeMb = uiState.cacheSizeMb,
+                                        updateInfo = updateInfo,
+                                        isCheckingUpdates = isCheckingUpdates,
+                                        onCheckForUpdates = { onComplete ->
+                                            viewModel.checkForUpdates(onComplete)
+                                        },
+                                        onThemeChange = { viewModel.setThemeMode(it) },
+                                        onHapticToggle = { viewModel.setHapticEnabled(it) },
+                                        onClearCache = { viewModel.clearImageCache() },
+                                        isAdmin = uiState.isAdmin,
+                                        onAdminLogin = { username, code ->
+                                            viewModel.loginAdmin(username, code)
+                                        },
+                                        onOpenAdminConsole = {
+                                            viewModel.openAdminConsole()
+                                        },
+                                        onAdminLogout = {
+                                            viewModel.logoutAdmin()
+                                        }
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    // Floating Glassmorphic Bottom Navigation Dock (Matching Screen 2)
-                    if (uiState.selectedWallpaper == null) {
-                        FloatingBottomNavDock(
-                            currentScreen = uiState.currentScreen,
-                            onTabSelected = { viewModel.navigateToScreen(it) },
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .navigationBarsPadding()
-                                .padding(bottom = 18.dp)
-                        )
+                        // Floating Glassmorphic Bottom Dock (Symmetric Concentric Capsule with Gesture Swipe)
+                        if (uiState.selectedWallpaper == null && !uiState.isAdminConsoleOpen) {
+                            NothingBottomNavDock(
+                                pagerState = pagerState,
+                                isDarkMode = uiState.themeMode == AppThemeMode.DARK,
+                                onTabSelected = { targetPage ->
+                                    triggerHaptic()
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(targetPage)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .navigationBarsPadding()
+                                    .padding(bottom = 18.dp)
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        // Full Screen Wallpaper Detail Screen (Matching Screen 3)
-        uiState.selectedWallpaper?.let { selected ->
-            WallpaperDetailScreen(
-                wallpaper = selected,
-                isFavorite = favoriteIds.contains(selected.id),
-                previewMode = uiState.previewMode,
-                isApplying = uiState.isApplyingWallpaper,
-                isDownloading = uiState.isDownloading,
-                onBackClick = { viewModel.closeWallpaperDetail() },
-                onPreviewModeChange = { viewModel.setPreviewMode(it) },
-                onToggleFavorite = { viewModel.toggleFavorite(selected) },
-                onApplyWallpaper = { viewModel.applyWallpaper(it) },
-                onDownloadToGallery = { viewModel.downloadWallpaperToGallery() },
-                modifier = Modifier.fillMaxSize()
-            )
+            // Full Screen Wallpaper Detail Screen
+            uiState.selectedWallpaper?.let { selected ->
+                WallpaperDetailScreen(
+                    wallpaper = selected,
+                    wallpapers = uiState.wallpapers,
+                    favoriteIds = favoriteIds,
+                    previewMode = uiState.previewMode,
+                    isApplying = uiState.isApplyingWallpaper,
+                    isDownloading = uiState.isDownloading,
+                    isAdmin = uiState.isAdmin,
+                    featuredWallpaperIds = uiState.featuredWallpaperIds,
+                    onboardingWallpaperIds = uiState.onboardingWallpaperIds,
+                    onBackClick = {
+                        triggerHaptic()
+                        viewModel.closeWallpaperDetail()
+                    },
+                    onPreviewModeChange = {
+                        triggerHaptic()
+                        viewModel.setPreviewMode(it)
+                    },
+                    onToggleFavorite = { wp ->
+                        triggerHaptic()
+                        viewModel.toggleFavorite(wp)
+                    },
+                    onApplyWallpaper = { wp, destination ->
+                        triggerHaptic()
+                        viewModel.applyWallpaper(destination, wp)
+                    },
+                    onDownloadToGallery = { wp ->
+                        triggerHaptic()
+                        viewModel.downloadWallpaperToGallery(wp)
+                    },
+                    onWallpaperChanged = { wp ->
+                        viewModel.setSelectedWallpaper(wp)
+                    },
+                    onToggleFeatured = { wp ->
+                        viewModel.toggleFeaturedWallpaper(wp.id)
+                    },
+                    onToggleOnboarding = { wp ->
+                        viewModel.toggleOnboardingWallpaper(wp.id)
+                    },
+                    onDeleteWallpaper = { wp ->
+                        viewModel.deleteWallpaper(wp.id)
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Full Screen Admin Console Overlay
+            if (uiState.isAdminConsoleOpen) {
+                AdminConsoleScreen(
+                    wallpapers = uiState.wallpapers,
+                    featuredWallpaperIds = uiState.featuredWallpaperIds,
+                    onboardingWallpaperIds = uiState.onboardingWallpaperIds,
+                    promotedWallpaperIds = uiState.promotedWallpaperIds,
+                    demotedWallpaperIds = uiState.demotedWallpaperIds,
+                    totalDownloads = uiState.totalAppDownloads,
+                    uploadState = uploadState,
+                    categories = viewModel.categories,
+                    onToggleFeatured = { id -> viewModel.toggleFeaturedWallpaper(id) },
+                    onToggleOnboarding = { id -> viewModel.toggleOnboardingWallpaper(id) },
+                    onPromoteWallpaper = { id -> viewModel.promoteWallpaper(id) },
+                    onDemoteWallpaper = { id -> viewModel.demoteWallpaper(id) },
+                    onUpdateWallpaperDownloads = { id, count -> viewModel.updateWallpaperDownloadCount(id, count) },
+                    onUpdateGlobalDownloads = { total -> viewModel.updateGlobalTotalDownloads(total) },
+                    onResetInflatedDownloads = { viewModel.resetInflatedDownloadStats() },
+                    onPreviewWelcomeScreen = { viewModel.setPreviewingOnboarding(true) },
+                    onDeleteWallpaper = { id -> viewModel.deleteWallpaper(id) },
+                    onImageSelected = { uri -> viewModel.onUploadImageSelected(uri) },
+                    onTitleChanged = { title -> viewModel.onUploadTitleChanged(title) },
+                    onCategoryChanged = { cat -> viewModel.onUploadCategoryChanged(cat) },
+                    onTagsChanged = { tags -> viewModel.onUploadTagsChanged(tags) },
+                    onSubmitUpload = { viewModel.submitAdminUpload() },
+                    onResetUploadForm = { viewModel.resetUploadForm() },
+                    onLogout = { viewModel.logoutAdmin() },
+                    onNavigateBack = { viewModel.closeAdminConsole() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Global In-App Update Prompt (Triggered automatically on startup if update is available)
+            if (uiState.showInAppUpdateDialog && updateInfo?.isUpdateAvailable == true) {
+                val context = LocalContext.current
+                val update = updateInfo!!
+                AlertDialog(
+                    onDismissRequest = { viewModel.dismissInAppUpdateDialog() },
+                    shape = RoundedCornerShape(24.dp),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(8.dp).background(NothingRed, androidx.compose.foundation.shape.CircleShape))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "UPDATE AVAILABLE",
+                                fontFamily = DotMatrixFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                letterSpacing = 1.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "${update.releaseTitle} is ready to install.",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            if (update.releaseNotes.isNotBlank()) {
+                                Text(
+                                    text = update.releaseNotes,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                            if (update.fileSizeFormatted.isNotBlank()) {
+                                Text(
+                                    text = "PACKAGE SIZE: ${update.fileSizeFormatted}",
+                                    fontFamily = DotMatrixFont,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 1.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.dismissInAppUpdateDialog()
+                                val url = update.downloadUrl.ifBlank { "https://github.com/fahitakrim/Orbitwall/releases" }
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                                context.startActivity(intent)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = NothingRed,
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Text(
+                                text = "DOWNLOAD & UPDATE",
+                                fontFamily = DotMatrixFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = { viewModel.dismissInAppUpdateDialog() }
+                        ) {
+                            Text(
+                                text = "LATER",
+                                fontFamily = DotMatrixFont,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                letterSpacing = 1.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                )
+            }
         }
     }
 }
 
 /**
- * Floating glassmorphic dock matching Screen 2 in the reference design.
+ * Nothing OS Symmetrical Concentric Capsule Pill Navigation Dock:
+ * - Outer capsule: 56dp height with 28dp radius
+ * - Inner margin: 4dp padding all around
+ * - Inner sliding indicator: 48dp height with 24dp radius (perfect concentric curvature R_inner = R_outer - padding)
+ * - Symmetrically blends with outer capsule edges on left (Home) and right (Settings)
+ * - Swipe gestures on dock itself and full screen seamlessly shift active pill
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FloatingBottomNavDock(
-    currentScreen: AppScreen,
-    onTabSelected: (AppScreen) -> Unit,
+private fun NothingBottomNavDock(
+    pagerState: PagerState,
+    isDarkMode: Boolean,
+    onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var totalDragDelta by remember { mutableFloatStateOf(0f) }
+    val draggableState = rememberDraggableState { delta ->
+        totalDragDelta += delta
+    }
+
+    // Continuous page position: [0.0f .. 2.0f]
+    val continuousPage = (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+        .coerceIn(0f, 2f)
+
+    val homePillColor = if (isDarkMode) Color.White else MaterialTheme.colorScheme.onBackground
+    val activeIndicatorColor = when {
+        continuousPage <= 1f -> lerp(homePillColor, NothingRed, continuousPage)
+        else -> lerp(NothingRed, NothingBlue, continuousPage - 1f)
+    }
+
     Surface(
-        shape = RoundedCornerShape(32.dp),
-        color = Color(0xDD25223A), // Translucent frosted dark glass
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
-        shadowElevation = 14.dp,
+        shape = RoundedCornerShape(28.dp),
+        color = if (isDarkMode) NothingDarkDock else NothingLightDock,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+        shadowElevation = 16.dp,
         modifier = modifier
-            .height(58.dp)
-            .width(230.dp)
-            .clip(RoundedCornerShape(32.dp))
+            .height(56.dp)
+            .width(240.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .draggable(
+                state = draggableState,
+                orientation = Orientation.Horizontal,
+                onDragStopped = { velocity ->
+                    val threshold = 30f
+                    if (velocity < -200f || totalDragDelta < -threshold) {
+                        // Swiped left -> move right (next tab)
+                        val target = (pagerState.currentPage + 1).coerceAtMost(2)
+                        onTabSelected(target)
+                    } else if (velocity > 200f || totalDragDelta > threshold) {
+                        // Swiped right -> move left (prev tab)
+                        val target = (pagerState.currentPage - 1).coerceAtLeast(0)
+                        onTabSelected(target)
+                    }
+                    totalDragDelta = 0f
+                }
+            )
             .testTag("floating_dock")
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier.fillMaxSize().padding(horizontal = 6.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp)
         ) {
-            // Tab 1: Home (white pill highlight when selected, dark icon)
-            DockTabItem(
-                icon = if (currentScreen == AppScreen.EXPLORE) Icons.Filled.Home else Icons.Outlined.Home,
-                isSelected = currentScreen == AppScreen.EXPLORE,
-                onClick = { onTabSelected(AppScreen.EXPLORE) }
-            )
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val totalWidth = maxWidth
+                val slotWidth = totalWidth / 3f
 
-            // Tab 2: Categories / Grid (or Admin Upload)
-            DockTabItem(
-                icon = if (currentScreen == AppScreen.ADMIN_UPLOAD) Icons.Filled.GridView else Icons.Outlined.GridView,
-                isSelected = currentScreen == AppScreen.ADMIN_UPLOAD,
-                onClick = { onTabSelected(AppScreen.ADMIN_UPLOAD) }
-            )
+                // 1. Thin Vertical Divider Lines (|) Layer
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Spacer(modifier = Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(18.dp)
+                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                }
 
-            // Tab 3: Favorites (Heart)
-            DockTabItem(
-                icon = if (currentScreen == AppScreen.FAVORITES) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                isSelected = currentScreen == AppScreen.FAVORITES,
-                onClick = { onTabSelected(AppScreen.FAVORITES) }
-            )
+                // 2. Sliding Indicator Pill Layer (Concentric 24dp radius matching 28dp outer - 4dp padding)
+                val indicatorOffset = slotWidth * continuousPage
+                Box(
+                    modifier = Modifier
+                        .offset(x = indicatorOffset)
+                        .width(slotWidth)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(activeIndicatorColor)
+                )
+
+                // 3. Tab Icons & Interactive Click Targets Layer
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Tab 0: Home
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onTabSelected(0) }
+                    ) {
+                        val dist0 = (continuousPage - 0f).absoluteValue.coerceIn(0f, 1f)
+                        val iconTint = lerp(
+                            start = if (isDarkMode) Color.Black else MaterialTheme.colorScheme.background,
+                            stop = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fraction = (dist0 * 2f).coerceIn(0f, 1f)
+                        )
+                        Icon(
+                            imageVector = if (continuousPage < 0.5f) Icons.Filled.Home else Icons.Outlined.Home,
+                            contentDescription = "Home",
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Tab 1: Favorites
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onTabSelected(1) }
+                    ) {
+                        val dist1 = (continuousPage - 1f).absoluteValue.coerceIn(0f, 1f)
+                        val iconTint = lerp(
+                            start = Color.White,
+                            stop = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fraction = (dist1 * 2f).coerceIn(0f, 1f)
+                        )
+                        Icon(
+                            imageVector = if (continuousPage in 0.5f..1.5f) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = "Favorites",
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // Tab 2: Settings
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(24.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { onTabSelected(2) }
+                    ) {
+                        val dist2 = (continuousPage - 2f).absoluteValue.coerceIn(0f, 1f)
+                        val iconTint = lerp(
+                            start = Color.White,
+                            stop = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f),
+                            fraction = (dist2 * 2f).coerceIn(0f, 1f)
+                        )
+                        Icon(
+                            imageVector = if (continuousPage > 1.5f) Icons.Filled.Settings else Icons.Outlined.Settings,
+                            contentDescription = "Settings",
+                            tint = iconTint,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun DockTabItem(
-    icon: ImageVector,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .height(44.dp)
-            .width(if (isSelected) 60.dp else 46.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .background(if (isSelected) Color.White else Color.Transparent)
-            .clickable(onClick = onClick)
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isSelected) Color(0xFF14151C) else Color.White.copy(alpha = 0.85f),
-            modifier = Modifier.size(22.dp)
-        )
     }
 }

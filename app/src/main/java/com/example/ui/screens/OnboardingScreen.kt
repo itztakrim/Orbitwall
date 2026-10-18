@@ -1,7 +1,9 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +18,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -32,6 +37,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -45,11 +51,14 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.model.Wallpaper
+import com.example.ui.theme.DotMatrixFont
 
 @Composable
 fun OnboardingScreen(
     wallpapers: List<Wallpaper>,
     onStartExplore: () -> Unit,
+    isPreview: Boolean = false,
+    onExitPreview: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -57,18 +66,24 @@ fun OnboardingScreen(
         wallpapers.map { it.thumbnailUrl }
     } else {
         listOf(
-            "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=450&auto=format&fit=crop&q=80", // Crimson Flow Abstract
-            "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?w=450&auto=format&fit=crop&q=80", // Eclipse Horizon Spheres
-            "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=450&auto=format&fit=crop&q=80", // Hooded Assassin Silver Blade
-            "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=450&auto=format&fit=crop&q=80", // Samurai Crimson Katana Moon
-            "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=450&auto=format&fit=crop&q=80", // Silver Haired Cyber Maiden
-            "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=450&auto=format&fit=crop&q=80", // Crimson Plume Obsidian Knight
-            "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=450&auto=format&fit=crop&q=80", // Liquid Chrome Infinity Sculpture
-            "https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=450&auto=format&fit=crop&q=80"  // Glass Butterfly Red Accents
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-akatsuki-moonlit-gathering.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-minimal-capsule-stack.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-itachi-red-moon.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-solitary-red-boat.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-eclipse-spheres-red-glow.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-kakashi-sharingan-moon.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-crimson-amber-fluid-flow.jpg",
+            "https://cdn.jsdelivr.net/gh/fahitakrim/Orbitwall@main/cloud_catalog/thumbs/paper-cherry-blossom-black.jpg"
         )
     }
 
     val backgroundColor = Color(0xFFF7F8FC)
+
+    if (isPreview) {
+        BackHandler(enabled = true) {
+            onExitPreview()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -81,31 +96,33 @@ fun OnboardingScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight(0.65f)
-                .offset(y = (-40).dp, x = 10.dp)
-                .rotate(-8f)
+                .offset(y = (-16).dp, x = 6.dp)
+                .rotate(-6f)
         ) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp)
             ) {
                 // Column 1
                 Column(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    for (i in 0 until 4) {
+                    for (i in 0 until 3) {
                         val img = if (userWallpapers.isNotEmpty()) userWallpapers[i % userWallpapers.size] else null
                         OnboardingCardItem(imageUrl = img)
                     }
                 }
-                // Column 2
+                // Column 2 (Subtle, balanced stagger)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .offset(y = (-30).dp)
+                        .offset(y = 12.dp)
                 ) {
-                    for (i in 4 until 8) {
+                    for (i in 3 until 6) {
                         val img = if (userWallpapers.isNotEmpty()) userWallpapers[i % userWallpapers.size] else null
                         OnboardingCardItem(imageUrl = img)
                     }
@@ -115,7 +132,7 @@ fun OnboardingScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.weight(1f)
                 ) {
-                    for (i in 3 until 7) {
+                    for (i in 6 until 9) {
                         val img = if (userWallpapers.isNotEmpty()) userWallpapers[i % userWallpapers.size] else null
                         OnboardingCardItem(imageUrl = img)
                     }
@@ -123,7 +140,7 @@ fun OnboardingScreen(
             }
         }
 
-        // Gradient Scrim overlay fading into clean background
+        // Gradient Scrim overlay fading cleanly into solid background without ghost overlaps
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -131,14 +148,55 @@ fun OnboardingScreen(
                     Brush.verticalGradient(
                         colorStops = arrayOf(
                             0.0f to Color.Transparent,
-                            0.35f to backgroundColor.copy(alpha = 0.4f),
-                            0.55f to backgroundColor.copy(alpha = 0.95f),
-                            0.7f to backgroundColor,
+                            0.24f to Color.Transparent,
+                            0.38f to backgroundColor.copy(alpha = 0.50f),
+                            0.48f to backgroundColor.copy(alpha = 0.88f),
+                            0.56f to backgroundColor,
                             1.0f to backgroundColor
                         )
                     )
                 )
         )
+
+        // Top Floating Pill for Preview Mode
+        if (isPreview) {
+            Box(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .align(Alignment.TopCenter)
+                    .padding(top = 16.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xEE161720))
+                    .border(1.dp, Color(0xFF00E676).copy(alpha = 0.8f), RoundedCornerShape(24.dp))
+                    .clickable { onExitPreview() }
+                    .padding(horizontal = 18.dp, vertical = 9.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Visibility,
+                        contentDescription = null,
+                        tint = Color(0xFF00E676),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "PREVIEW MODE // TAP TO EXIT",
+                        fontFamily = DotMatrixFont,
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF00E676),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
 
         // Lower Content: Title, Subtitle, and "Start Explore" Pill Button
         Column(
@@ -171,7 +229,7 @@ fun OnboardingScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Button(
-                onClick = onStartExplore,
+                onClick = if (isPreview) onExitPreview else onStartExplore,
                 shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF161720),
@@ -184,7 +242,7 @@ fun OnboardingScreen(
                     .testTag("start_explore_button")
             ) {
                 Text(
-                    text = "Start Explore",
+                    text = if (isPreview) "Close Preview" else "Start Explore",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp
@@ -202,7 +260,7 @@ private fun OnboardingCardItem(imageUrl: String?) {
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.72f)
+            .aspectRatio(0.68f)
             .clip(RoundedCornerShape(22.dp))
     ) {
         if (!imageUrl.isNullOrBlank()) {
